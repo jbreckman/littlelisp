@@ -1,4 +1,5 @@
 var t = require('./littlelisp').littleLisp;
+var TokenTypes = require('./AsyncLisp/Token.js');
 
 var is = function(input, type) {
   return Object.prototype.toString.call(input) === '[object ' + type + ']';
@@ -6,16 +7,10 @@ var is = function(input, type) {
 
 // takes an AST and replaces type annotated nodes with raw values
 var unannotate = function(input) {
-  if (is(input, 'Array')) {
-    if (input[0] === undefined) {
-      return [];
-    } else if (is(input[0], 'Array')) {
-      return [unannotate(input[0])].concat(unannotate(input.slice(1)));
-    } else {
-      return unannotate(input[0]).concat(unannotate(input.slice(1)));
-    }
+  if (input instanceof TokenTypes.ListToken) {
+    return input.value.map(unannotate);
   } else {
-    return [input.value];
+    return input.value;
   }
 };
 

@@ -1,138 +1,101 @@
-;(function(exports) {
-  var library = {
-    first: function(x) {
-      return x[0];
-    },
+/*
+var Closure = function(input, context) {
+  this.input = input;
+  this.context = context;
 
-    rest: function(x) {
-      return x.slice(1);
-    },
+  this.execute = function(arguments) {
+    var lambdaArguments = arguments;
+    var lambdaScope = this.input[1].reduce(function(acc, x, i) {
+      acc[x.value] = lambdaArguments[i];
+      return acc;
+    }, {});
 
-    print: function(x) {
-      console.log(x);
-      return x;
+    return interpret(this.input[2], new Context(lambdaScope, this.context));
+  }
+};
+
+var special = {
+  begin: function(methodArguments, context, payload, deliveredPayload) {
+    if (Object.keys(deliveredPayload).length === methodArguments.length) {
+      return deliveredPayload[methodArguments.length - 1];
     }
-  };
-
-  var Context = function(scope, parent) {
-    this.scope = scope;
-    this.parent = parent;
-
-    this.get = function(identifier) {
-      if (identifier in this.scope) {
-        return this.scope[identifier];
-      } else if (this.parent !== undefined) {
-        return this.parent.get(identifier);
-      }
-    };
-  };
-
-  var special = {
-    let: function(input, context) {
-      var letContext = input[1].reduce(function(acc, x) {
-        acc.scope[x[0].value] = interpret(x[1], context);
-        return acc;
-      }, new Context({}, context));
-
-      return interpret(input[2], letContext);
-    },
-
-    lambda: function(input, context) {
-      return function() {
-        var lambdaArguments = arguments;
-        var lambdaScope = input[1].reduce(function(acc, x, i) {
-          acc[x.value] = lambdaArguments[i];
-          return acc;
-        }, {});
-
-        return interpret(input[2], new Context(lambdaScope, context));
-      };
-    },
-
-    if: function(input, context) {
-      return interpret(input[1], context) ?
-        interpret(input[2], context) :
-        interpret(input[3], context);
+    else {
+      var resolvedBegin = new StackEntry('begin', methodArguments, context, {})
+      return []
     }
-  };
+  },
 
-  var interpretList = function(input, context) {
-    if (input.length > 0 && input[0].value in special) {
-      return special[input[0].value](input, context);
+  let: function(input, context) {
+    var letContext = input[1].reduce(function(acc, x) {
+      acc.scope[x[0].value] = interpret(x[1], context);
+      return acc;
+    }, new Context({}, context));
+
+    return interpret(input[2], letContext);
+  },
+
+  lambda: function(input, context) {
+    return new Closure(input, context);
+  },
+
+  if: function(input, context) {
+    return interpret(input[1], context) ?
+      interpret(input[2], context) :
+      interpret(input[3], context);
+  },
+
+  first: function(input, context) {
+    var listResults = interpret(input[1], context)
+    return listResults[0];
+  },
+
+  rest: function(input, context) {
+    var listResults = interpret(input[1], context)
+    return listResults.slice(1);
+  },
+
+  print: function(input, context) {
+    var result = interpret(input[1], context);
+    console.log(result);
+    return result;
+  }
+};
+
+var interpretList = function(input, context) {
+  if (input.length > 0 && input[0].value in special) {
+    return special[input[0].value](input, context);
+  } else {
+    var list = input.map(function(x) { return interpret(x, context); });
+    if (list[0] instanceof Closure) {
+      return list[0].execute(list.slice(1));
     } else {
-      var list = input.map(function(x) { return interpret(x, context); });
-      if (list[0] instanceof Function) {
-        return list[0].apply(undefined, list.slice(1));
-      } else {
-        return list;
-      }
+      return list;
     }
-  };
+  }
+};
 
-  var interpret = function(input, context) {
-    if (context === undefined) {
-      return interpret(input, new Context(library));
-    } else if (input instanceof Array) {
-      return interpretList(input, context);
-    } else if (input.type === "identifier") {
-      return context.get(input.value);
-    } else if (input.type === "number" || input.type === "string") {
-      return input.value;
-    }
-  };
+var interpret = function(input, context) {
+  if (context === undefined) {
+    return interpret(input, new Context({}));
+  } else if (input instanceof Array) {
+    return interpretList(input, context);
+  } else if (input.type === "identifier") {
+    return context.get(input.value);
+  } else if (input.type === "number" || input.type === "string") {
+    return input.value;
+  }
+};*/
 
-  var categorize = function(input) {
-    if (!isNaN(parseFloat(input))) {
-      return { type:'number', value: parseFloat(input) };
-    } else if (input[0] === '"' && input.slice(-1) === '"') {
-      return { type:'string', value: input.slice(1, -1) };
-    } else {
-      return { type:'identifier', value: input };
-    }
-  };
+var parse = require('./AsyncLisp/Parser.js').parse;
+var Runtime = require('./AsyncLisp/Runtime.js').Runtime;
 
-  var parenthesize = function(input, list) {
-    if (list === undefined) {
-      return parenthesize(input, []);
-    } else {
-      var token = input.shift();
-      if (token === undefined) {
-        return list.pop();
-      } else if (token === "(") {
-        list.push(parenthesize(input, []));
-        return parenthesize(input, list);
-      } else if (token === ")") {
-        return list;
-      } else {
-        return parenthesize(input, list.concat(categorize(token)));
-      }
-    }
-  };
+var interpret = function(token) {
+  return new Runtime(token).execute();
+}
 
-  var tokenize = function(input) {
-    return input.split('"')
-                .map(function(x, i) {
-                   if (i % 2 === 0) { // not in string
-                     return x.replace(/\(/g, ' ( ')
-                             .replace(/\)/g, ' ) ');
-                   } else { // in string
-                     return x.replace(/ /g, "!whitespace!");
-                   }
-                 })
-                .join('"')
-                .trim()
-                .split(/\s+/)
-                .map(function(x) {
-                  return x.replace(/!whitespace!/g, " ");
-                });
-  };
+console.log(parse);
 
-  var parse = function(input) {
-    return parenthesize(tokenize(input));
-  };
-
-  exports.littleLisp = {
-    parse: parse,
-    interpret: interpret
-  };
-})(typeof exports === 'undefined' ? this : exports);
+exports.littleLisp = {
+  parse: parse,
+  interpret: interpret
+};
